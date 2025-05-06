@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quantum Tic Tac Toe</title>
+    <style>
+      :root {
+        --primary: #05d9e8;
+        --secondary: #ff2a6d;
+        --bg-dark: #1a1a2e;
+        --bg-cell: #16213e;
+        --glow: #05d9e8;
+        --text: #d1f7ff;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Orbitron', sans-serif;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background-color: var(--bg-dark);
+        color: var(--text);
+        overflow: hidden;
+        position: relative;
+      }
+
+      body::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(#000, #000), url('/api/placeholder/1200/800');
+        background-blend-mode: color-dodge;
+        opacity: 0.05;
+        pointer-events: none;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        z-index: 1;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        text-shadow: 0 0 10px var(--glow);
+        animation: pulse 2s infinite;
+      }
+
+      .status-container {
+        height: 30px;
+        font-size: 1.2rem;
+        margin: 10px 0;
+        text-align: center;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 120px);
+        gap: 10px;
+        perspective: 1000px;
+        position: relative;
+      }
+
+      .board::after {
+        content: '';
+        position: absolute;
+        inset: -20px;
+        border: 2px solid var(--primary);
+        filter: blur(8px);
+        opacity: 0.3;
+        pointer-events: none;
+        z-index: -1;
+      }
+
+      .cell {
+        width: 120px;
+        height: 120px;
+        background-color: var(--bg-cell);
+        border: 2px solid rgba(5, 217, 232, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        transform-style: preserve-3d;
+        border-radius: 5px;
+      }
+
+      .cell::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at center, rgba(5, 217, 232, 0.1), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .cell:hover {
+        transform: translateZ(20px);
+        box-shadow: 0 0 15px rgba(5, 217, 232, 0.5);
+        border-color: var(--primary);
+      }
+
+      .cell:hover::before {
+        opacity: 1;
+      }
+
+      .cell.x-move {
+        color: var(--primary);
+        text-shadow: 0 0 10px var(--primary);
+      }
+
+      .cell.o-move {
+        color: var(--secondary);
+        text-shadow: 0 0 10px var(--secondary);
+      }
+
+      .winning-cell {
+        animation: winPulse 2s infinite;
+      }
+
+      .controls {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      button {
+        background-color: transparent;
+        color: var(--text);
+        border: 2px solid var(--primary);
+        padding: 10px 25px;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        border-radius: 5px;
+      }
+
+      button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--primary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+      }
+
+      button:hover {
+        color: var(--bg-dark);
+        box-shadow: 0 0 15px rgba(5, 217, 232, 0.7);
+      }
+
+      button:hover::before {
+        opacity: 1;
+      }
+
+      .mode-toggle {
+        margin-top: 10px;
+        display: flex;
+        gap: 5px;
+        align-items: center;
+      }
+
+      .difficulty {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .radio-container {
+        display: flex;
+        gap: 15px;
+      }
+
+      .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+      }
+
+      input[type='radio'] {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--primary);
+        border-radius: 50%;
+        outline: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      input[type='radio']:checked {
+        background-color: var(--primary);
+        box-shadow: 0 0 5px var(--primary);
+      }
+
+      .particle {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        animation: particleAnimation 1s forwards cubic-bezier(0.26, 0.53, 0.74, 1.48);
+      }
+
+      .score-board {
+        display: flex;
+        gap: 40px;
+        margin: 20px 0;
+        font-size: 1.2rem;
+      }
+
+      .score {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+      }
+
+      .player-x {
+        color: var(--primary);
+      }
+
+      .player-o {
+        color: var(--secondary);
+      }
+
+      .active-player::before {
+        content: '>';
+        position: absolute;
+        left: -15px;
+        animation: blink 1s infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0;
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          text-shadow:
+            0 0 10px var(--glow),
+            0 0 20px var(--glow);
+        }
+        50% {
+          text-shadow:
+            0 0 15px var(--glow),
+            0 0 30px var(--glow);
+        }
+      }
+
+      @keyframes winPulse {
+        0%,
+        100% {
+          transform: scale(1);
+          filter: brightness(1);
+        }
+        50% {
+          transform: scale(1.05);
+          filter: brightness(1.2);
+        }
+      }
+
+      @keyframes particleAnimation {
+        0% {
+          transform: scale(0) translate(0, 0);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) translate(var(--tx), var(--ty));
+          opacity: 0;
+        }
+      }
+
+      /* Floating elements animation */
+      .floating {
+        position: absolute;
+        opacity: 0.1;
+        z-index: -1;
+        animation: float 15s linear infinite;
+      }
+
+      @keyframes float {
+        0% {
+          transform: translateY(0) rotate(0deg);
+        }
+        100% {
+          transform: translateY(-1000px) rotate(360deg);
+        }
+      }
+
+      /* Media queries for responsiveness */
+      @media (max-width: 600px) {
+        .board {
+          grid-template-columns: repeat(3, 90px);
+        }
+
+        .cell {
+          width: 90px;
+          height: 90px;
+          font-size: 2rem;
+        }
+
+        h1 {
+          font-size: 1.8rem;
+        }
+      }
+
+      /* Add digital noise effect */
+      @keyframes noise {
+        0%,
+        100% {
+          background-position: 0 0;
+        }
+        10% {
+          background-position: -5% -10%;
+        }
+        20% {
+          background-position: -15% 5%;
+        }
+        30% {
+          background-position: 7% -25%;
+        }
+        40% {
+          background-position: 20% 25%;
+        }
+        50% {
+          background-position: -25% 10%;
+        }
+        60% {
+          background-position: 15% 5%;
+        }
+        70% {
+          background-position: 0% 15%;
+        }
+        80% {
+          background-position: 25% 35%;
+        }
+        90% {
+          background-position: -10% 10%;
+        }
+      }
+
+      .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 100;
+      }
+
+      .modal.active {
+        opacity: 1;
+        pointer-events: all;
+      }
+
+      .modal-content {
+        background: var(--bg-cell);
+        padding: 30px;
+        border-radius: 10px;
+        text-align: center;
+        transform: translateY(-50px);
+        transition: transform 0.3s ease;
+        border: 2px solid var(--primary);
+        box-shadow: 0 0 20px rgba(5, 217, 232, 0.4);
+        max-width: 90%;
+      }
+
+      .modal.active .modal-content {
+        transform: translateY(0);
+      }
+
+      .modal h2 {
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+
+      #confetti-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 99;
+      }
+    </style>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Quantum Tic Tac Toe</h1>
+
+      <div class="score-board">
+        <div class="score player-x" id="score-x">
+          <span>PLAYER X</span>
+          <span>0</span>
+        </div>
+        <div class="score player-o" id="score-o">
+          <span>PLAYER O</span>
+          <span>0</span>
+        </div>
+      </div>
+
+      <div class="status-container">
+        <div id="status">Turno di Player X</div>
+      </div>
+
+      <div class="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+      </div>
+
+      <div class="controls">
+        <button id="reset"><i class="fas fa-sync-alt"></i> Reset</button>
+        <button id="undo"><i class="fas fa-undo"></i> Undo</button>
+      </div>
+
+      <div class="mode-toggle">
+        <span>Mode:</span>
+        <div class="radio-container">
+          <label class="radio-option">
+            <input type="radio" name="mode" value="pvp" checked /> PvP
+          </label>
+          <label class="radio-option"> <input type="radio" name="mode" value="ai" /> vs AI </label>
+        </div>
+      </div>
+
+      <div class="difficulty" id="difficulty-container" style="display: none">
+        <span>Difficulty:</span>
+        <div class="radio-container">
+          <label class="radio-option">
+            <input type="radio" name="difficulty" value="easy" checked /> Easy
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="difficulty" value="medium" /> Medium
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="difficulty" value="hard" /> Hard
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="win-modal">
+      <div class="modal-content">
+        <h2 id="modal-message">Player X Wins!</h2>
+        <button id="play-again">Play Again</button>
+      </div>
+    </div>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <script>
+      // Game state
+      const gameState = {
+        currentPlayer: 'X',
+        gameOver: false,
+        boardState: Array(9).fill(''),
+        history: [],
+        mode: 'pvp',
+        difficulty: 'easy',
+        scores: {
+          X: 0,
+          O: 0,
+          ties: 0,
+        },
+      };
+
+      // DOM Elements
+      const cells = document.querySelectorAll('.cell');
+      const resetBtn = document.getElementById('reset');
+      const undoBtn = document.getElementById('undo');
+      const statusText = document.getElementById('status');
+      const modeRadios = document.querySelectorAll('input[name="mode"]');
+      const difficultyRadios = document.querySelectorAll('input[name="difficulty"]');
+      const difficultyContainer = document.getElementById('difficulty-container');
+      const scoreX = document.getElementById('score-x');
+      const scoreO = document.getElementById('score-o');
+      const winModal = document.getElementById('win-modal');
+      const modalMessage = document.getElementById('modal-message');
+      const playAgainBtn = document.getElementById('play-again');
+      const confettiCanvas = document.getElementById('confetti-canvas');
+      const ctx = confettiCanvas.getContext('2d');
+
+      // Win combinations
+      const winCombos = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8], // rows
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8], // columns
+        [0, 4, 8],
+        [2, 4, 6], // diagonals
+      ];
+
+      // Initialize the game
+      function initGame() {
+        // Set up canvas
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+
+        // Add floating elements
+        addFloatingElements();
+
+        // Add event listeners
+        resetBtn.addEventListener('click', resetGame);
+        undoBtn.addEventListener('click', undoMove);
+        playAgainBtn.addEventListener('click', closeModal);
+
+        modeRadios.forEach((radio) => {
+          radio.addEventListener('change', (e) => {
+            gameState.mode = e.target.value;
+            difficultyContainer.style.display = gameState.mode === 'ai' ? 'flex' : 'none';
+            resetGame();
+          });
+        });
+
+        difficultyRadios.forEach((radio) => {
+          radio.addEventListener('change', (e) => {
+            gameState.difficulty = e.target.value;
+            if (gameState.currentPlayer === 'O' && gameState.mode === 'ai') {
+              setTimeout(makeAIMove, 500);
+            }
+          });
+        });
+
+        cells.forEach((cell) => {
+          cell.addEventListener('click', () => handleCellClick(cell));
+        });
+
+        // Update UI
+        updateScoreDisplay();
+        updateTurnIndicator();
+      }
+
+      // Handle cell click
+      function handleCellClick(cell) {
+        if (
+          gameState.gameOver ||
+          cell.textContent !== '' ||
+          (gameState.mode === 'ai' && gameState.currentPlayer === 'O')
+        )
+          return;
+
+        const index = parseInt(cell.getAttribute('data-index'));
+        makeMove(index);
+
+        if (!gameState.gameOver && gameState.mode === 'ai' && gameState.currentPlayer === 'O') {
+          setTimeout(makeAIMove, 500);
+        }
+      }
+
+      // Make a move
+      function makeMove(index) {
+        if (gameState.boardState[index] !== '' || gameState.gameOver) return false;
+
+        // Save current state for undo
+        gameState.history.push({
+          boardState: [...gameState.boardState],
+          currentPlayer: gameState.currentPlayer,
+        });
+
+        // Update board state
+        gameState.boardState[index] = gameState.currentPlayer;
+        cells[index].textContent = gameState.currentPlayer;
+        cells[index].classList.add(gameState.currentPlayer === 'X' ? 'x-move' : 'o-move');
+
+        // Add particle effects
+        createParticles(cells[index]);
+
+        // Check for win or draw
+        const winCombo = checkWin();
+        if (winCombo) {
+          endGame(`Player ${gameState.currentPlayer} Wins!`, winCombo);
+          gameState.scores[gameState.currentPlayer]++;
+          updateScoreDisplay();
+          showConfetti();
+          return true;
+        }
+
+        if (checkDraw()) {
+          endGame("It's a Draw!");
+          gameState.scores.ties++;
+          updateScoreDisplay();
+          return true;
+        }
+
+        // Switch player
+        gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
+        updateTurnIndicator();
+        return true;
+      }
+
+      // AI move
+      function makeAIMove() {
+        if (gameState.gameOver) return;
+
+        let index;
+
+        switch (gameState.difficulty) {
+          case 'easy':
+            index = getRandomMove();
+            break;
+          case 'medium':
+            index = Math.random() > 0.5 ? getBestMove(3) : getRandomMove();
+            break;
+          case 'hard':
+            index = getBestMove(5);
+            break;
+          default:
+            index = getRandomMove();
+        }
+
+        makeMove(index);
+      }
+
+      // Get random available move
+      function getRandomMove() {
+        const availableMoves = gameState.boardState
+          .map((cell, index) => (cell === '' ? index : null))
+          .filter((cell) => cell !== null);
+
+        return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+      }
+
+      // Minimax algorithm for AI
+      function getBestMove(depth) {
+        // If AI can win in one move, make that move
+        for (let i = 0; i < 9; i++) {
+          if (gameState.boardState[i] === '') {
+            gameState.boardState[i] = 'O';
+            if (checkWinForPlayer('O')) {
+              gameState.boardState[i] = '';
+              return i;
+            }
+            gameState.boardState[i] = '';
+          }
+        }
+
+        // If player can win in one move, block that move
+        for (let i = 0; i < 9; i++) {
+          if (gameState.boardState[i] === '') {
+            gameState.boardState[i] = 'X';
+            if (checkWinForPlayer('X')) {
+              gameState.boardState[i] = '';
+              return i;
+            }
+            gameState.boardState[i] = '';
+          }
+        }
+
+        // For hard difficulty, use center if available
+        if (gameState.difficulty === 'hard' && gameState.boardState[4] === '') {
+          return 4;
+        }
+
+        // For medium/hard, try to fork or block forks
+        if (gameState.difficulty !== 'easy') {
+          // Try corners first
+          const corners = [0, 2, 6, 8];
+          const availableCorners = corners.filter((i) => gameState.boardState[i] === '');
+
+          if (availableCorners.length > 0) {
+            return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+          }
+        }
+
+        // Otherwise, make a random move
+        return getRandomMove();
+      }
+
+      // Check if player can win
+      function checkWinForPlayer(player) {
+        return winCombos.some((combo) =>
+          combo.every((index) => gameState.boardState[index] === player)
+        );
+      }
+
+      // Undo the last move
+      function undoMove() {
+        if (gameState.history.length === 0) return;
+
+        const lastState = gameState.history.pop();
+        gameState.boardState = lastState.boardState;
+        gameState.currentPlayer = lastState.currentPlayer;
+        gameState.gameOver = false;
+
+        // Update UI
+        for (let i = 0; i < 9; i++) {
+          cells[i].textContent = gameState.boardState[i];
+          cells[i].classList.remove('x-move', 'o-move', 'winning-cell');
+          if (gameState.boardState[i] === 'X') {
+            cells[i].classList.add('x-move');
+          } else if (gameState.boardState[i] === 'O') {
+            cells[i].classList.add('o-move');
+          }
+        }
+
+        statusText.textContent = `Turno di Player ${gameState.currentPlayer}`;
+        updateTurnIndicator();
+      }
+
+      // Check for win
+      function checkWin() {
+        for (const combo of winCombos) {
+          if (
+            gameState.boardState[combo[0]] !== '' &&
+            gameState.boardState[combo[0]] === gameState.boardState[combo[1]] &&
+            gameState.boardState[combo[0]] === gameState.boardState[combo[2]]
+          ) {
+            return combo;
+          }
+        }
+        return null;
+      }
+
+      // Check for draw
+      function checkDraw() {
+        return gameState.boardState.every((cell) => cell !== '');
+      }
+
+      // End the game
+      function endGame(message, winCombo) {
+        gameState.gameOver = true;
+        statusText.textContent = message;
+
+        if (winCombo) {
+          winCombo.forEach((index) => {
+            cells[index].classList.add('winning-cell');
+          });
+        }
+
+        // Show modal
+        modalMessage.textContent = message;
+        winModal.classList.add('active');
+      }
+
+      // Close the modal
+      function closeModal() {
+        winModal.classList.remove('active');
+        resetGame();
+      }
+
+      // Reset the game
+      function resetGame() {
+        gameState.boardState = Array(9).fill('');
+        gameState.currentPlayer = 'X';
+        gameState.gameOver = false;
+        gameState.history = [];
+
+        // Update UI
+        cells.forEach((cell) => {
+          cell.textContent = '';
+          cell.classList.remove('x-move', 'o-move', 'winning-cell');
+        });
+
+        statusText.textContent = `Turno di Player ${gameState.currentPlayer}`;
+        updateTurnIndicator();
+
+        // If AI mode and AI starts
+        if (gameState.mode === 'ai' && gameState.currentPlayer === 'O') {
+          setTimeout(makeAIMove, 500);
+        }
+      }
+
+      // Update score display
+      function updateScoreDisplay() {
+        scoreX.querySelector('span:last-child').textContent = gameState.scores.X;
+        scoreO.querySelector('span:last-child').textContent = gameState.scores.O;
+      }
+
+      // Update turn indicator
+      function updateTurnIndicator() {
+        scoreX.classList.toggle('active-player', gameState.currentPlayer === 'X');
+        scoreO.classList.toggle('active-player', gameState.currentPlayer === 'O');
+      }
+
+      // Create particles
+      function createParticles(element) {
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        for (let i = 0; i < 15; i++) {
+          const particle = document.createElement('div');
+          particle.classList.add('particle');
+
+          const size = Math.random() * 8 + 3;
+          const tx = (Math.random() - 0.5) * 100;
+          const ty = (Math.random() - 0.5) * 100;
+          const rotation = Math.random() * 360;
+
+          particle.style.width = `${size}px`;
+          particle.style.height = `${size}px`;
+          particle.style.left = `${centerX}px`;
+          particle.style.top = `${centerY}px`;
+          particle.style.setProperty('--tx', `${tx}px`);
+          particle.style.setProperty('--ty', `${ty}px`);
+
+          if (gameState.currentPlayer === 'X') {
+            particle.style.backgroundColor = 'var(--primary)';
+          } else {
+            particle.style.backgroundColor = 'var(--secondary)';
+          }
+
+          document.body.appendChild(particle);
+
+          // Remove particle after animation completes
+          setTimeout(() => {
+            particle.remove();
+          }, 1000);
+        }
+      }
+
+      // Show confetti
+      function showConfetti() {
+        const colors =
+          gameState.currentPlayer === 'X'
+            ? ['#05d9e8', '#d1f7ff', '#0389fa']
+            : ['#ff2a6d', '#ffc2d1', '#ff7096'];
+
+        const confettiCount = 200;
+        const confetti = [];
+
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+
+        // Create confetti particles
+        for (let i = 0; i < confettiCount; i++) {
+          confetti.push({
+            x: Math.random() * confettiCanvas.width,
+            y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+            size: Math.random() * 10 + 5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            speed: Math.random() * 3 + 2,
+            angle: Math.random() * 6.28,
+            rotation: Math.random() * 0.2 - 0.1,
+            rotationSpeed: Math.random() * 0.01 - 0.005,
+          });
+        }
+
+        // Animation loop
+        let animationFrame;
+        const animateConfetti = () => {
+          ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+          let stillFalling = false;
+          confetti.forEach((p) => {
+            p.y += p.speed;
+            p.x += Math.sin(p.angle) * 0.5;
+            p.angle += p.rotation;
+            p.rotation += p.rotationSpeed;
+
+            if (p.y < confettiCanvas.height) {
+              stillFalling = true;
+            }
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+            ctx.restore();
+          });
+
+          if (stillFalling) {
+            animationFrame = requestAnimationFrame(animateConfetti);
+          } else {
+            cancelAnimationFrame(animationFrame);
+          }
+        };
+
+        animationFrame = requestAnimationFrame(animateConfetti);
+      }
+
+      // Add floating elements in background
+      function addFloatingElements() {
+        const symbols = ['X', 'O', '0', '1'];
+        const count = 20;
+
+        for (let i = 0; i < count; i++) {
+          const el = document.createElement('div');
+          el.classList.add('floating');
+          el.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+          el.style.fontSize = `${Math.random() * 30 + 20}px`;
+          el.style.left = `${Math.random() * 100}%`;
+          el.style.top = `${Math.random() * 100}%`;
+          el.style.animationDuration = `${Math.random() * 30 + 20}s`;
+          el.style.animationDelay = `${Math.random() * 5}s`;
+
+          if (Math.random() > 0.5) {
+            el.style.color = 'var(--primary)';
+          } else {
+            el.style.color = 'var(--secondary)';
+          }
+
+          document.body.appendChild(el);
+        }
+      }
+
+      // Initialize on window load
+      window.addEventListener('load', initGame);
+      window.addEventListener('resize', () => {
+        confettiCanvas.width = window.innerWidth;
+        confettiCanvas.height = window.innerHeight;
+      });
+    </script>
+  </body>
+</html>

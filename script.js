@@ -11,6 +11,47 @@ const gameState = {
     O: 0,
     ties: 0,
   },
+  soundEnabled: true, // Sound toggle state
+  soundSettings: {
+    masterVolume: 0.7, // Overall volume
+    musicVolume: 0.5, // Background music volume
+    effectsVolume: 0.8, // Sound effects volume
+    currentTrack: 'scifi', // Current music track
+  },
+};
+
+// Audio elements
+const sounds = {
+  move: {
+    X: new Audio(), // X move sound
+    O: new Audio(), // O move sound
+  },
+  win: new Audio(),
+  draw: new Audio(),
+  click: new Audio(),
+  hover: new Audio(),
+  bgMusic: {
+    scifi: new Audio(),
+    ambient: new Audio(),
+    cyber: new Audio(),
+    current: null, // Will be set to one of the above
+  },
+};
+
+// Music tracks
+const musicTracks = {
+  scifi: {
+    title: 'Sci-Fi Atmosphere',
+    src: '/sounds/scifi.mp3',
+  },
+  ambient: {
+    title: 'Digital Ambience',
+    src: '/sounds/digital.mp3',
+  },
+  cyber: {
+    title: 'Cyber Pulse',
+    src: '/sounds/pulse.mp3',
+  },
 };
 
 // DOM Elements
@@ -52,20 +93,39 @@ const translations = {
 
 // Initialize the game
 function initGame() {
+  // Load saved settings
+  loadSettings();
+
   // Set up canvas
   confettiCanvas.width = window.innerWidth;
   confettiCanvas.height = window.innerHeight;
+
+  // Initialize sounds
+  initSounds();
 
   // Add floating elements
   addFloatingElements();
 
   // Add event listeners
-  resetBtn.addEventListener('click', resetGame);
-  undoBtn.addEventListener('click', undoMove);
-  playAgainBtn.addEventListener('click', closeModal);
+  resetBtn.addEventListener('click', () => {
+    playSound('click');
+    resetGame();
+  });
+
+  undoBtn.addEventListener('click', () => {
+    playSound('click');
+    undoMove();
+  });
+
+  playAgainBtn.addEventListener('click', () => {
+    playSound('click');
+    closeModal();
+    resetBoard();
+  });
 
   modeRadios.forEach((radio) => {
     radio.addEventListener('change', (e) => {
+      playSound('click');
       gameState.mode = e.target.value;
       difficultyContainer.style.display = gameState.mode === 'ai' ? 'flex' : 'none';
       resetGame();
@@ -74,6 +134,7 @@ function initGame() {
 
   difficultyRadios.forEach((radio) => {
     radio.addEventListener('change', (e) => {
+      playSound('click');
       gameState.difficulty = e.target.value;
       if (gameState.currentPlayer === 'O' && gameState.mode === 'ai') {
         setTimeout(makeAIMove, 500);
@@ -83,79 +144,447 @@ function initGame() {
 
   cells.forEach((cell) => {
     cell.addEventListener('click', () => handleCellClick(cell));
+
+    // Add hover sound effect
+    cell.addEventListener('mouseenter', () => {
+      if (cell.textContent === '' && !gameState.gameOver) {
+        playSound('hover');
+      }
+    });
   });
+
+  // Create sound controls
+  createSoundControls();
 
   // Update UI
   updateScoreDisplay();
   updateTurnIndicator();
+
+  // Start background music
+  playBackgroundMusic();
 }
 
-// Handle cell click
-function handleCellClick(cell) {
-  if (
-    gameState.gameOver ||
-    cell.textContent !== '' ||
-    (gameState.mode === 'ai' && gameState.currentPlayer === 'O')
-  )
-    return;
+// Load saved settings from localStorage
+function loadSettings() {
+  try {
+    const savedSettings = localStorage.getItem('quantumTicTacToeSettings');
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      gameState.soundEnabled = settings.soundEnabled ?? true;
+      gameState.soundSettings = {
+        ...gameState.soundSettings,
+        ...settings.soundSettings,
+      };
+    }
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    // If there's an error, use default settings
+  }
+}
 
-  const index = parseInt(cell.getAttribute('data-index'));
+// Save settings to localStorage
+function saveSettings() {
+  try {
+    const settings = {
+      soundEnabled: gameState.soundEnabled,
+      soundSettings: gameState.soundSettings,
+    };
+    localStorage.setItem('quantumTicTacToeSettings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('Error saving settings:', error);
+  }
+}
+
+// Initialize sound objects
+function initSounds() {
+  // Sound URLs
+  const soundSources = {
+    'move.X': '/sounds/move.wav', // X move sound (digital click)
+    'move.O': '/sounds/move.wav', // O move sound (different tone)
+    win: '/sounds/win.wav', // Win celebration
+    draw: '/sounds/draw.wav', // Game over sound
+    click: '/sounds/click.wav', // UI click sound
+    hover: '/sounds/hover.wav', // Hover sound
+  };
+
+  // Set up each sound effect
+  sounds.move.X.src = soundSources['move.X'];
+  sounds.move.X.preload = 'auto';
+  sounds.move.X.volume =
+    gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+
+  sounds.move.O.src = soundSources['move.O'];
+  sounds.move.O.preload = 'auto';
+  sounds.move.O.volume =
+    gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+
+  sounds.win.src = soundSources.win;
+  sounds.win.preload = 'auto';
+  sounds.win.volume = gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+
+  sounds.draw.src = soundSources.draw;
+  sounds.draw.preload = 'auto';
+  sounds.draw.volume = gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+
+  sounds.click.src = soundSources.click;
+  sounds.click.preload = 'auto';
+  sounds.click.volume =
+    gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+
+  sounds.hover.src = soundSources.hover;
+  sounds.hover.preload = 'auto';
+  sounds.hover.volume =
+    0.2 * gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume; // Lower volume for hover
+
+  // Set up music tracks
+  Object.entries(musicTracks).forEach(([key, track]) => {
+    sounds.bgMusic[key].src = track.src;
+    sounds.bgMusic[key].preload = 'auto';
+    sounds.bgMusic[key].loop = true;
+    sounds.bgMusic[key].volume =
+      gameState.soundSettings.musicVolume * gameState.soundSettings.masterVolume;
+  });
+
+  // Set current track
+  sounds.bgMusic.current = sounds.bgMusic[gameState.soundSettings.currentTrack];
+
+  // Add error handling
+  const allSounds = [
+    sounds.move.X,
+    sounds.move.O,
+    sounds.win,
+    sounds.draw,
+    sounds.click,
+    sounds.hover,
+    ...Object.values(sounds.bgMusic),
+  ];
+
+  allSounds.forEach((sound) => {
+    if (sound instanceof Audio) {
+      sound.addEventListener('error', () => {
+        console.log('Error loading sound');
+        // Disable sounds on error
+        gameState.soundEnabled = false;
+      });
+    }
+  });
+}
+
+// Update sound volumes
+function updateSoundVolumes() {
+  // Update effects volumes
+  sounds.move.X.volume =
+    gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+  sounds.move.O.volume =
+    gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+  sounds.win.volume = gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+  sounds.draw.volume = gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+  sounds.click.volume =
+    gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+  sounds.hover.volume =
+    0.2 * gameState.soundSettings.effectsVolume * gameState.soundSettings.masterVolume;
+
+  // Update music volumes
+  Object.values(sounds.bgMusic).forEach((track) => {
+    if (track instanceof Audio) {
+      track.volume = gameState.soundSettings.musicVolume * gameState.soundSettings.masterVolume;
+    }
+  });
+
+  // Save settings
+  saveSettings();
+}
+
+// Change background music track
+function changeBackgroundMusic(trackKey) {
+  if (!musicTracks[trackKey]) return;
+
+  // Fade out current track if playing
+  if (sounds.bgMusic.current && !sounds.bgMusic.current.paused) {
+    const fadeOutInterval = setInterval(() => {
+      if (sounds.bgMusic.current.volume > 0.05) {
+        sounds.bgMusic.current.volume -= 0.05;
+      } else {
+        clearInterval(fadeOutInterval);
+        sounds.bgMusic.current.pause();
+        sounds.bgMusic.current.currentTime = 0;
+
+        // Set new track and play
+        gameState.soundSettings.currentTrack = trackKey;
+        sounds.bgMusic.current = sounds.bgMusic[trackKey];
+        playBackgroundMusic(true); // true indicates fade in
+      }
+    }, 50);
+  } else {
+    // Just set new track and play
+    gameState.soundSettings.currentTrack = trackKey;
+    sounds.bgMusic.current = sounds.bgMusic[trackKey];
+    playBackgroundMusic();
+  }
+
+  // Save settings
+  saveSettings();
+}
+
+// Play a sound by key
+function playSound(key, player = null) {
+  if (!gameState.soundEnabled) return;
+
+  let soundToPlay;
+
+  // Handle move sounds differently for X and O
+  if (key === 'move' && player) {
+    soundToPlay = sounds.move[player];
+  } else {
+    soundToPlay = sounds[key];
+  }
+
+  if (!soundToPlay) return;
+
+  // Stop and reset the sound first (allows for rapid triggering)
+  soundToPlay.pause();
+  soundToPlay.currentTime = 0;
+
+  // Play the sound with a promise catch for browsers that restrict autoplay
+  const playPromise = soundToPlay.play();
+
+  if (playPromise !== undefined) {
+    playPromise.catch((error) => {
+      console.log('Playback prevented by browser');
+      // Could show a "Click to enable sound" message here
+    });
+  }
+}
+
+// Play background music
+function playBackgroundMusic(fadeIn = false) {
+  if (!gameState.soundEnabled || !sounds.bgMusic.current) return;
+
+  // Set initial volume if fading in
+  if (fadeIn) {
+    sounds.bgMusic.current.volume = 0;
+  }
+
+  // Try to play background music with user interaction handling
+  const playPromise = sounds.bgMusic.current.play();
+
+  if (playPromise !== undefined) {
+    playPromise.catch((error) => {
+      console.log('Background music autoplay prevented');
+
+      // Add a one-time click listener to start music on user interaction
+      const startAudio = () => {
+        sounds.bgMusic.current.play();
+        document.removeEventListener('click', startAudio);
+      };
+      document.addEventListener('click', startAudio);
+    });
+  }
+
+  // Fade in if requested
+  if (fadeIn) {
+    const fadeInInterval = setInterval(() => {
+      const targetVolume =
+        gameState.soundSettings.musicVolume * gameState.soundSettings.masterVolume;
+      if (sounds.bgMusic.current.volume < targetVolume) {
+        sounds.bgMusic.current.volume += 0.05;
+        if (sounds.bgMusic.current.volume >= targetVolume) {
+          sounds.bgMusic.current.volume = targetVolume;
+          clearInterval(fadeInInterval);
+        }
+      } else {
+        clearInterval(fadeInInterval);
+      }
+    }, 50);
+  }
+}
+
+// Create sound controls
+function createSoundControls() {
+  // Create container for sound controls
+  const soundControlsContainer = document.createElement('div');
+  soundControlsContainer.className = 'sound-controls hidden';
+  soundControlsContainer.id = 'sound-controls';
+
+  // Create sound toggle button
+  const soundToggleBtn = document.createElement('button');
+  soundToggleBtn.className = 'sound-toggle';
+  soundToggleBtn.innerHTML = gameState.soundEnabled
+    ? '<i class="fas fa-volume-up"></i>'
+    : '<i class="fas fa-volume-mute"></i>';
+  soundToggleBtn.id = 'sound-toggle';
+
+  // Add event listener to toggle sound
+  soundToggleBtn.addEventListener('click', () => {
+    gameState.soundEnabled = !gameState.soundEnabled;
+    soundToggleBtn.innerHTML = gameState.soundEnabled
+      ? '<i class="fas fa-volume-up"></i>'
+      : '<i class="fas fa-volume-mute"></i>';
+
+    // Toggle sound controls visibility
+    const soundControls = document.getElementById('sound-controls');
+    if (soundControls) {
+      soundControls.classList.toggle('hidden', !gameState.soundEnabled);
+    }
+
+    // Play or pause music based on state
+    if (gameState.soundEnabled) {
+      playBackgroundMusic();
+    } else {
+      if (sounds.bgMusic.current) {
+        sounds.bgMusic.current.pause();
+      }
+    }
+
+    // Save settings
+    saveSettings();
+  });
+
+  // Create master volume control
+  const masterVolumeControl = createVolumeControl(
+    'Master Volume',
+    gameState.soundSettings.masterVolume,
+    (value) => {
+      gameState.soundSettings.masterVolume = parseFloat(value);
+      updateSoundVolumes();
+    }
+  );
+
+  // Create music volume control
+  const musicVolumeControl = createVolumeControl(
+    'Music Volume',
+    gameState.soundSettings.musicVolume,
+    (value) => {
+      gameState.soundSettings.musicVolume = parseFloat(value);
+      updateSoundVolumes();
+    }
+  );
+
+  // Create effects volume control
+  const effectsVolumeControl = createVolumeControl(
+    'Effects Volume',
+    gameState.soundSettings.effectsVolume,
+    (value) => {
+      gameState.soundSettings.effectsVolume = parseFloat(value);
+      updateSoundVolumes();
+    }
+  );
+
+  // Create soundtrack selector
+  const soundtrackSelector = document.createElement('div');
+  soundtrackSelector.className = 'volume-control';
+
+  const soundtrackLabel = document.createElement('label');
+  soundtrackLabel.textContent = 'Soundtrack:';
+
+  const soundtrackSelect = document.createElement('select');
+  soundtrackSelect.className = 'soundtrack-select';
+
+  // Add options for each soundtrack
+  Object.entries(musicTracks).forEach(([key, track]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = track.title;
+    option.selected = key === gameState.soundSettings.currentTrack;
+    soundtrackSelect.appendChild(option);
+  });
+
+  // Add event listener to change soundtrack
+  soundtrackSelect.addEventListener('change', (e) => {
+    changeBackgroundMusic(e.target.value);
+  });
+
+  soundtrackSelector.appendChild(soundtrackLabel);
+  soundtrackSelector.appendChild(soundtrackSelect);
+
+  // Add all controls to container
+  soundControlsContainer.appendChild(masterVolumeControl);
+  soundControlsContainer.appendChild(musicVolumeControl);
+  soundControlsContainer.appendChild(effectsVolumeControl);
+  soundControlsContainer.appendChild(soundtrackSelector);
+
+  // Add container and toggle button to DOM
+  document.querySelector('.controls').appendChild(soundToggleBtn);
+  document.querySelector('.container').appendChild(soundControlsContainer);
+
+  // Show sound controls if sound is enabled
+  soundControlsContainer.classList.toggle('hidden', !gameState.soundEnabled);
+}
+
+// Helper function to create volume controls
+function createVolumeControl(labelText, initialValue, onChange) {
+  const container = document.createElement('div');
+  container.className = 'volume-control';
+
+  const label = document.createElement('label');
+  label.textContent = labelText;
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = '0';
+  slider.max = '1';
+  slider.step = '0.1';
+  slider.value = initialValue;
+  slider.className = 'volume-slider';
+
+  slider.addEventListener('input', (e) => {
+    onChange(e.target.value);
+  });
+
+  container.appendChild(label);
+  container.appendChild(slider);
+
+  return container;
+}
+
+// Handle cell clicks
+function handleCellClick(cell) {
+  const index = cell.dataset.index;
+
+  // Check if the cell is already taken or game is over
+  if (gameState.boardState[index] || gameState.gameOver) {
+    return;
+  }
+
+  // Make move
   makeMove(index);
 
-  if (!gameState.gameOver && gameState.mode === 'ai' && gameState.currentPlayer === 'O') {
+  // If playing against AI and it's O's turn, make AI move
+  if (gameState.mode === 'ai' && gameState.currentPlayer === 'O' && !gameState.gameOver) {
     setTimeout(makeAIMove, 500);
   }
 }
 
-// Format string with placeholders
-function formatString(str, ...args) {
-  return str.replace(/{(\d+)}/g, (match, number) => {
-    return typeof args[number] !== 'undefined' ? args[number] : match;
-  });
-}
-
 // Make a move
 function makeMove(index) {
-  if (gameState.boardState[index] !== '' || gameState.gameOver) return false;
-
-  // Save current state for undo
-  gameState.history.push({
-    boardState: [...gameState.boardState],
-    currentPlayer: gameState.currentPlayer,
-  });
+  // Save current state to history
+  saveGameState();
 
   // Update board state
   gameState.boardState[index] = gameState.currentPlayer;
-  cells[index].textContent = gameState.currentPlayer;
-  cells[index].classList.add(gameState.currentPlayer === 'X' ? 'x-move' : 'o-move');
 
-  // Add particle effects
-  createParticles(cells[index]);
+  // Update UI
+  updateCell(index);
+
+  // Play move sound
+  playSound('move', gameState.currentPlayer);
+
+  // Add particle effect
+  createMoveParticles(index);
 
   // Check for win or draw
-  const winCombo = checkWin();
-  if (winCombo) {
-    endGame(formatString(translations.winMessage, gameState.currentPlayer), winCombo);
-    gameState.scores[gameState.currentPlayer]++;
-    updateScoreDisplay();
-    showConfetti();
-    return true;
+  if (checkWin()) {
+    handleWin();
+  } else if (checkDraw()) {
+    handleDraw();
+  } else {
+    // Switch player
+    gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
+    updateTurnIndicator();
   }
-
-  if (checkDraw()) {
-    endGame(translations.drawMessage);
-    gameState.scores.ties++;
-    updateScoreDisplay();
-    return true;
-  }
-
-  // Switch player
-  gameState.currentPlayer = gameState.currentPlayer === 'X' ? 'O' : 'X';
-  updateTurnIndicator();
-  return true;
 }
 
-// AI move
+// AI move function
 function makeAIMove() {
   if (gameState.gameOver) return;
 
@@ -163,336 +592,488 @@ function makeAIMove() {
 
   switch (gameState.difficulty) {
     case 'easy':
-      index = getRandomMove();
+      index = makeRandomMove();
       break;
     case 'medium':
-      index = Math.random() > 0.5 ? getBestMove(3) : getRandomMove();
+      // 70% chance of smart move, 30% chance of random
+      index = Math.random() < 0.7 ? makeSmartMove(1) : makeRandomMove();
       break;
     case 'hard':
-      index = getBestMove(5);
+      // Smart move with deeper look ahead
+      index = makeSmartMove(2);
       break;
     default:
-      index = getRandomMove();
+      index = makeRandomMove();
   }
 
-  makeMove(index);
+  // Make the move
+  if (index !== null) {
+    makeMove(index);
+  }
 }
 
-// Get random available move
-function getRandomMove() {
-  const availableMoves = gameState.boardState
+// Make a random valid move
+function makeRandomMove() {
+  const emptyCells = gameState.boardState
     .map((cell, index) => (cell === '' ? index : null))
-    .filter((cell) => cell !== null);
+    .filter((index) => index !== null);
 
-  if (availableMoves.length === 0) return -1; // No moves available
-  return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+  if (emptyCells.length === 0) return null;
+
+  const randomIndex = Math.floor(Math.random() * emptyCells.length);
+  return emptyCells[randomIndex];
 }
 
-// Minimax algorithm for AI
-function getBestMove(depth) {
-  // If AI can win in one move, make that move
-  for (let i = 0; i < 9; i++) {
-    if (gameState.boardState[i] === '') {
-      gameState.boardState[i] = 'O';
-      if (checkWinForPlayer('O')) {
-        gameState.boardState[i] = '';
-        return i;
+// Make a smart move using minimax algorithm
+function makeSmartMove(depth = 1) {
+  // Define minimax function
+  function minimax(board, depth, isMaximizing, alpha = -Infinity, beta = Infinity) {
+    // Check for terminal states
+    const winner = getWinner(board);
+    if (winner === 'O') return 10;
+    if (winner === 'X') return -10;
+    if (isBoardFull(board)) return 0;
+    if (depth === 0) return evaluateBoard(board);
+
+    const emptyCells = board
+      .map((cell, index) => (cell === '' ? index : null))
+      .filter((index) => index !== null);
+
+    if (isMaximizing) {
+      let maxEval = -Infinity;
+      for (const index of emptyCells) {
+        const newBoard = [...board];
+        newBoard[index] = 'O';
+        const evaluation = minimax(newBoard, depth - 1, false, alpha, beta);
+        maxEval = Math.max(maxEval, evaluation);
+        alpha = Math.max(alpha, evaluation);
+        if (beta <= alpha) break; // Alpha-beta pruning
       }
-      gameState.boardState[i] = '';
-    }
-  }
-
-  // If player can win in one move, block that move
-  for (let i = 0; i < 9; i++) {
-    if (gameState.boardState[i] === '') {
-      gameState.boardState[i] = 'X';
-      if (checkWinForPlayer('X')) {
-        gameState.boardState[i] = '';
-        return i;
+      return maxEval;
+    } else {
+      let minEval = Infinity;
+      for (const index of emptyCells) {
+        const newBoard = [...board];
+        newBoard[index] = 'X';
+        const evaluation = minimax(newBoard, depth - 1, true, alpha, beta);
+        minEval = Math.min(minEval, evaluation);
+        beta = Math.min(beta, evaluation);
+        if (beta <= alpha) break; // Alpha-beta pruning
       }
-      gameState.boardState[i] = '';
+      return minEval;
     }
   }
 
-  // For hard difficulty, use center if available
-  if (gameState.difficulty === 'hard' && gameState.boardState[4] === '') {
-    return 4;
+  // Helper function to get winner
+  function getWinner(board) {
+    for (const combo of winCombos) {
+      if (
+        board[combo[0]] !== '' &&
+        board[combo[0]] === board[combo[1]] &&
+        board[combo[1]] === board[combo[2]]
+      ) {
+        return board[combo[0]];
+      }
+    }
+    return null;
   }
 
-  // For medium/hard, try to fork or block forks
-  if (gameState.difficulty !== 'easy') {
-    // Try corners first
-    const corners = [0, 2, 6, 8];
-    const availableCorners = corners.filter((i) => gameState.boardState[i] === '');
+  // Helper function to check if board is full
+  function isBoardFull(board) {
+    return !board.includes('');
+  }
 
-    if (availableCorners.length > 0) {
-      return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+  // Simple board evaluation function
+  function evaluateBoard(board) {
+    // Check for potential wins/blocks
+    let score = 0;
+
+    // Check rows, columns, and diagonals
+    for (const combo of winCombos) {
+      const line = [board[combo[0]], board[combo[1]], board[combo[2]]];
+      const countX = line.filter((cell) => cell === 'X').length;
+      const countO = line.filter((cell) => cell === 'O').length;
+
+      // Score based on patterns
+      if (countO === 2 && countX === 0) score += 5;
+      if (countO === 1 && countX === 0) score += 1;
+      if (countX === 2 && countO === 0) score -= 5;
     }
 
-    // Try edges if no corners available
-    const edges = [1, 3, 5, 7];
-    const availableEdges = edges.filter((i) => gameState.boardState[i] === '');
+    // Add a small random factor for variety
+    score += Math.random() * 0.2 - 0.1;
 
-    if (availableEdges.length > 0) {
-      return availableEdges[Math.floor(Math.random() * availableEdges.length)];
+    return score;
+  }
+
+  // Find the best move
+  const emptyCells = gameState.boardState
+    .map((cell, index) => (cell === '' ? index : null))
+    .filter((index) => index !== null);
+
+  if (emptyCells.length === 0) return null;
+
+  let bestScore = -Infinity;
+  let bestMove = emptyCells[0];
+
+  for (const index of emptyCells) {
+    const newBoard = [...gameState.boardState];
+    newBoard[index] = 'O';
+    const score = minimax(newBoard, depth, false);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = index;
     }
   }
 
-  // Otherwise, make a random move
-  return getRandomMove();
+  return bestMove;
 }
 
-// Check if player can win
-function checkWinForPlayer(player) {
-  return winCombos.some((combo) => combo.every((index) => gameState.boardState[index] === player));
-}
+// Update a cell in the UI
+function updateCell(index) {
+  const cell = cells[index];
+  const mark = gameState.boardState[index];
 
-// Undo the last move
-function undoMove() {
-  if (gameState.history.length === 0) return;
+  cell.textContent = mark;
+  cell.classList.remove('x-move', 'o-move');
 
-  const lastState = gameState.history.pop();
-  gameState.boardState = lastState.boardState;
-  gameState.currentPlayer = lastState.currentPlayer;
-  gameState.gameOver = false;
-
-  // Update UI
-  for (let i = 0; i < 9; i++) {
-    cells[i].textContent = gameState.boardState[i];
-    cells[i].classList.remove('x-move', 'o-move', 'winning-cell');
-    if (gameState.boardState[i] === 'X') {
-      cells[i].classList.add('x-move');
-    } else if (gameState.boardState[i] === 'O') {
-      cells[i].classList.add('o-move');
-    }
+  if (mark === 'X') {
+    cell.classList.add('x-move');
+  } else if (mark === 'O') {
+    cell.classList.add('o-move');
   }
-
-  statusText.textContent = formatString(translations.turnMessage, gameState.currentPlayer);
-  updateTurnIndicator();
 }
 
-// Check for win
+// Update the turn indicator
+function updateTurnIndicator() {
+  const message = translations.turnMessage.replace('{0}', gameState.currentPlayer);
+  statusText.textContent = message;
+
+  // Update active player highlight
+  const playerXScore = document.getElementById('score-x');
+  const playerOScore = document.getElementById('score-o');
+
+  playerXScore.classList.toggle('active-player', gameState.currentPlayer === 'X');
+  playerOScore.classList.toggle('active-player', gameState.currentPlayer === 'O');
+}
+
+// Check for a win
 function checkWin() {
   for (const combo of winCombos) {
     if (
       gameState.boardState[combo[0]] !== '' &&
       gameState.boardState[combo[0]] === gameState.boardState[combo[1]] &&
-      gameState.boardState[combo[0]] === gameState.boardState[combo[2]]
+      gameState.boardState[combo[1]] === gameState.boardState[combo[2]]
     ) {
-      return combo;
+      // Highlight winning cells
+      combo.forEach((index) => {
+        cells[index].classList.add('winning-cell');
+      });
+      return true;
     }
   }
-  return null;
+  return false;
 }
 
-// Check for draw
+// Check for a draw
 function checkDraw() {
-  return gameState.boardState.every((cell) => cell !== '');
+  return !gameState.boardState.includes('');
 }
 
-// End the game
-function endGame(message, winCombo) {
+// Handle win scenario
+function handleWin() {
   gameState.gameOver = true;
-  statusText.textContent = message;
 
-  if (winCombo) {
-    winCombo.forEach((index) => {
-      cells[index].classList.add('winning-cell');
-    });
-  }
+  // Update score
+  gameState.scores[gameState.currentPlayer]++;
+  updateScoreDisplay();
+
+  // Show win message
+  const message = translations.winMessage.replace('{0}', gameState.currentPlayer);
+  statusText.textContent = message;
 
   // Show modal
   modalMessage.textContent = message;
-  winModal.classList.add('active');
+  showModal();
+
+  // Play win sound
+  playSound('win');
+
+  // Show confetti
+  createConfetti();
 }
 
-// Close the modal
-function closeModal() {
-  winModal.classList.remove('active');
-  resetGame();
+// Handle draw scenario
+function handleDraw() {
+  gameState.gameOver = true;
+
+  // Update score
+  gameState.scores.ties++;
+  updateScoreDisplay();
+
+  // Show draw message
+  statusText.textContent = translations.drawMessage;
+
+  // Show modal
+  modalMessage.textContent = translations.drawMessage;
+  showModal();
+
+  // Play draw sound
+  playSound('draw');
 }
 
-// Reset the game
-function resetGame() {
-  gameState.boardState = Array(9).fill('');
+// Update score display
+function updateScoreDisplay() {
+  scoreX.querySelector('span:last-child').textContent = gameState.scores.X;
+  scoreO.querySelector('span:last-child').textContent = gameState.scores.O;
+}
+
+// Reset the board
+function resetBoard() {
+  // Reset game state
   gameState.currentPlayer = 'X';
   gameState.gameOver = false;
+  gameState.boardState = Array(9).fill('');
   gameState.history = [];
 
-  // Update UI
-  cells.forEach((cell) => {
+  // Reset UI
+  cells.forEach((cell, index) => {
     cell.textContent = '';
     cell.classList.remove('x-move', 'o-move', 'winning-cell');
   });
 
-  statusText.textContent = formatString(translations.turnMessage, gameState.currentPlayer);
+  // Update turn indicator
   updateTurnIndicator();
+}
 
-  // Clear any remaining particles
-  document.querySelectorAll('.particle').forEach((p) => p.remove());
+// Reset the entire game
+function resetGame() {
+  resetBoard();
 
-  // If AI mode and AI starts
+  // Reset scores
+  gameState.scores = {
+    X: 0,
+    O: 0,
+    ties: 0,
+  };
+
+  // Update score display
+  updateScoreDisplay();
+}
+
+// Save current game state to history
+function saveGameState() {
+  gameState.history.push({
+    boardState: [...gameState.boardState],
+    currentPlayer: gameState.currentPlayer,
+  });
+}
+
+// Undo the last move
+function undoMove() {
+  if (gameState.history.length === 0 || gameState.gameOver) return;
+
+  // Get previous state
+  const prevState = gameState.history.pop();
+
+  // Restore state
+  gameState.boardState = prevState.boardState;
+  gameState.currentPlayer = prevState.currentPlayer;
+  gameState.gameOver = false;
+
+  // Update UI
+  cells.forEach((cell, index) => {
+    cell.textContent = gameState.boardState[index];
+    cell.classList.remove('x-move', 'o-move', 'winning-cell');
+
+    if (gameState.boardState[index] === 'X') {
+      cell.classList.add('x-move');
+    } else if (gameState.boardState[index] === 'O') {
+      cell.classList.add('o-move');
+    }
+  });
+
+  // Update turn indicator
+  updateTurnIndicator();
+}
+
+// Show modal
+function showModal() {
+  winModal.classList.add('active');
+}
+
+// Close modal
+function closeModal() {
+  winModal.classList.remove('active');
+  resetBoard();
+
+  // If playing against AI and it's O's turn, make AI move
   if (gameState.mode === 'ai' && gameState.currentPlayer === 'O') {
     setTimeout(makeAIMove, 500);
   }
 }
 
-// Update score display
-function updateScoreDisplay() {
-  // Update player labels to use translations
-  scoreX.querySelector('span:first-child').textContent = translations.playerX;
-  scoreO.querySelector('span:first-child').textContent = translations.playerO;
-
-  // Update scores
-  scoreX.querySelector('span:last-child').textContent = gameState.scores.X;
-  scoreO.querySelector('span:last-child').textContent = gameState.scores.O;
-}
-
-// Update turn indicator
-function updateTurnIndicator() {
-  statusText.textContent = formatString(translations.turnMessage, gameState.currentPlayer);
-  scoreX.classList.toggle('active-player', gameState.currentPlayer === 'X');
-  scoreO.classList.toggle('active-player', gameState.currentPlayer === 'O');
-}
-
-// Create particles
-function createParticles(element) {
-  const rect = element.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-
-  for (let i = 0; i < 15; i++) {
-    const particle = document.createElement('div');
-    particle.classList.add('particle');
-
-    const size = Math.random() * 8 + 3;
-    const tx = (Math.random() - 0.5) * 100;
-    const ty = (Math.random() - 0.5) * 100;
-    const rotation = Math.random() * 360;
-
-    particle.style.width = `${size}px`;
-    particle.style.height = `${size}px`;
-    particle.style.left = `${centerX}px`;
-    particle.style.top = `${centerY}px`;
-    particle.style.setProperty('--tx', `${tx}px`);
-    particle.style.setProperty('--ty', `${ty}px`);
-
-    if (gameState.currentPlayer === 'X') {
-      particle.style.backgroundColor = 'var(--primary)';
-    } else {
-      particle.style.backgroundColor = 'var(--secondary)';
-    }
-
-    document.body.appendChild(particle);
-
-    // Remove particle after animation completes
-    setTimeout(() => {
-      if (particle && particle.parentNode) {
-        particle.remove();
-      }
-    }, 1000);
-  }
-}
-
-// Show confetti
-function showConfetti() {
-  const colors =
-    gameState.currentPlayer === 'X'
-      ? ['#05d9e8', '#d1f7ff', '#0389fa']
-      : ['#ff2a6d', '#ffc2d1', '#ff7096'];
-
+// Create confetti effect for wins
+function createConfetti() {
   const confettiCount = 200;
-  const confetti = [];
+  const colors = ['#05d9e8', '#ff2a6d', '#d1f7ff', '#16213e'];
+  const confettiItems = [];
 
-  confettiCanvas.width = window.innerWidth;
-  confettiCanvas.height = window.innerHeight;
+  // Clear canvas first
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
-  // Create confetti particles
   for (let i = 0; i < confettiCount; i++) {
-    confetti.push({
+    confettiItems.push({
       x: Math.random() * confettiCanvas.width,
       y: Math.random() * confettiCanvas.height - confettiCanvas.height,
       size: Math.random() * 10 + 5,
       color: colors[Math.floor(Math.random() * colors.length)],
       speed: Math.random() * 3 + 2,
-      angle: Math.random() * 6.28,
-      rotation: Math.random() * 0.2 - 0.1,
-      rotationSpeed: Math.random() * 0.01 - 0.005,
+      angle: Math.random() * 360,
+      rotation: Math.random() * 360,
+      rotationSpeed: Math.random() * 5 - 2.5,
+      flutter: Math.random() * 0.2 + 0.1,
     });
   }
 
-  // Animation loop
+  // Animate confetti
   let animationFrame;
-  const animateConfetti = () => {
+  const animate = () => {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
-    let stillFalling = false;
-    confetti.forEach((p) => {
-      p.y += p.speed;
-      p.x += Math.sin(p.angle) * 0.5;
-      p.angle += p.rotation;
-      p.rotation += p.rotationSpeed;
+    let stillActive = false;
 
-      if (p.y < confettiCanvas.height) {
-        stillFalling = true;
+    confettiItems.forEach((item) => {
+      item.y += item.speed;
+      item.x += Math.sin(item.angle) * item.flutter;
+      item.angle += 0.1;
+      item.rotation += item.rotationSpeed;
+
+      if (item.y < confettiCanvas.height + 20) {
+        stillActive = true;
+
+        ctx.save();
+        ctx.translate(item.x, item.y);
+        ctx.rotate((item.rotation * Math.PI) / 180);
+        ctx.fillStyle = item.color;
+
+        // Draw rectangle confetti
+        ctx.fillRect(-item.size / 2, -item.size / 2, item.size, item.size);
+
+        ctx.restore();
       }
-
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rotation);
-      ctx.fillStyle = p.color;
-      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
-      ctx.restore();
     });
 
-    if (stillFalling) {
-      animationFrame = requestAnimationFrame(animateConfetti);
+    if (stillActive) {
+      animationFrame = requestAnimationFrame(animate);
     } else {
       cancelAnimationFrame(animationFrame);
     }
   };
 
-  animationFrame = requestAnimationFrame(animateConfetti);
-
-  // Safety cleanup after some time
-  setTimeout(() => {
-    if (animationFrame) {
-      cancelAnimationFrame(animationFrame);
-    }
-  }, 10000); // 10 seconds max
+  animate();
 }
 
-// Add floating elements in background
-function addFloatingElements() {
-  // Clear existing floating elements first
-  document.querySelectorAll('.floating').forEach((el) => el.remove());
+// Create move particles
+function createMoveParticles(index) {
+  const cell = cells[index];
+  const rect = cell.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
 
-  const symbols = ['X', 'O', '0', '1'];
-  const count = 20;
+  const particleCount = 15;
+  const color = gameState.currentPlayer === 'X' ? '#05d9e8' : '#ff2a6d';
 
-  for (let i = 0; i < count; i++) {
-    const el = document.createElement('div');
-    el.classList.add('floating');
-    el.textContent = symbols[Math.floor(Math.random() * symbols.length)];
-    el.style.fontSize = `${Math.random() * 30 + 20}px`;
-    el.style.left = `${Math.random() * 100}%`;
-    el.style.top = `${Math.random() * 100}%`;
-    el.style.animationDuration = `${Math.random() * 30 + 20}s`;
-    el.style.animationDelay = `${Math.random() * 5}s`;
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.left = `${centerX}px`;
+    particle.style.top = `${centerY}px`;
 
-    if (Math.random() > 0.5) {
-      el.style.color = 'var(--primary)';
-    } else {
-      el.style.color = 'var(--secondary)';
-    }
+    // Random size
+    const size = Math.random() * 10 + 5;
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
 
-    document.body.appendChild(el);
+    // Random direction
+    const angle = Math.random() * Math.PI * 2;
+    const distance = Math.random() * 100 + 50;
+    const tx = Math.cos(angle) * distance;
+    const ty = Math.sin(angle) * distance;
+
+    particle.style.setProperty('--tx', `${tx}px`);
+    particle.style.setProperty('--ty', `${ty}px`);
+
+    // Style
+    particle.style.backgroundColor = color;
+    particle.style.borderRadius = '50%';
+
+    document.body.appendChild(particle);
+
+    // Auto-remove after animation completes
+    setTimeout(() => {
+      if (particle.parentNode) {
+        particle.parentNode.removeChild(particle);
+      }
+    }, 1000);
   }
 }
 
-// Initialize on window load
-window.addEventListener('load', initGame);
+// Add floating elements to the background
+function addFloatingElements() {
+  const shapes = ['circle', 'square', 'triangle'];
+  const container = document.body;
+
+  for (let i = 0; i < 20; i++) {
+    const element = document.createElement('div');
+    element.className = 'floating';
+
+    // Random position
+    element.style.left = `${Math.random() * 100}%`;
+    element.style.top = `${Math.random() * 100}%`;
+
+    // Random size
+    const size = Math.random() * 50 + 20;
+    element.style.width = `${size}px`;
+    element.style.height = `${size}px`;
+
+    // Random shape
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    if (shape === 'circle') {
+      element.style.borderRadius = '50%';
+    } else if (shape === 'triangle') {
+      element.style.width = '0';
+      element.style.height = '0';
+      element.style.borderLeft = `${size / 2}px solid transparent`;
+      element.style.borderRight = `${size / 2}px solid transparent`;
+      element.style.borderBottom = `${size}px solid rgba(5, 217, 232, 0.1)`;
+      element.style.background = 'none';
+    } else {
+      element.style.transform = `rotate(${Math.random() * 360}deg)`;
+    }
+
+    // Style
+    if (shape !== 'triangle') {
+      element.style.background =
+        Math.random() > 0.5 ? 'rgba(5, 217, 232, 0.1)' : 'rgba(255, 42, 109, 0.1)';
+    }
+
+    // Animation duration and delay
+    const duration = Math.random() * 50 + 30;
+    const delay = Math.random() * 5;
+    element.style.animationDuration = `${duration}s`;
+    element.style.animationDelay = `${delay}s`;
+
+    container.appendChild(element);
+  }
+}
+
+// Responsive resize handler
 window.addEventListener('resize', () => {
   confettiCanvas.width = window.innerWidth;
   confettiCanvas.height = window.innerHeight;
 });
+
+// Initialize the game
+window.addEventListener('DOMContentLoaded', initGame);

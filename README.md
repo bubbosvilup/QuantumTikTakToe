@@ -1,83 +1,108 @@
-# 🛠️ projectSetup
+# Quantum Tic Tac Toe
 
-Questo repository contiene una configurazione base **pronta all’uso** per iniziare nuovi progetti JavaScript (e opzionalmente React) con:
-
-- ✅ ESLint moderno (ESM config)
-- ✅ Prettier integrato in ESLint
-- ✅ `.prettierrc` con stile opinato
-- ✅ Plugin già installati per browser + Node
-- ✅ Comandi `npm run lint` e `npm run lint:fix`
-- ✅ Pronto per essere clonato e adattato a nuovi progetti
+🎮 Una reinterpretazione futuristica del classico gioco del tris, con AI, effetti visivi, suoni dinamici e supporto per PvP o sfida contro l'IA. Progettato per essere pubblicato come app Android tramite Capacitor.
 
 ---
 
-## 🚀 Come usarlo per un nuovo progetto
+## 🚀 Funzionalità
 
-### 1. Clona il template
+- Modalità **Player vs Player** e **Player vs AI** (con 3 livelli di difficoltà)
+- Effetti sonori e musica di sottofondo
+- Effetti visivi animati (confetti, particelle, elementi fluttuanti)
+- Undo, Reset e Modalità Scura
+- Scoreboard e indicatori di turno
+- 🎯 Compatibile con dispositivi mobili (via Capacitor)
+- 🎮 Pubblicabile su **Play Store**
 
-```bash
-git clone https://github.com/bubbosvilup/projectSetup.git nome-nuovo-progetto
-```
+---
 
-### 2. Entra nella cartella
+## 🛠️ Tecnologie usate
 
-```bash
-cd nome-nuovo-progetto
-```
+- HTML5 + CSS3 + JavaScript
+- Capacitor.js per Android
+- Canvas API per effetti speciali
+- LocalStorage per impostazioni audio
 
-### 3. Rimuovi il collegamento al repository originale
+---
 
-```bash
-rm -rf .git
-```
+## 📲 Pubblicazione su Android (Capacitor)
 
-### 4. (Facoltativo) Crea il tuo nuovo repo
-
-```bash
-git init
-git add .
-git commit -m "Setup iniziale"
-```
-
-Poi puoi collegarlo a un nuovo repo GitHub se vuoi.
-
-Installa le dipendenze
+1. Installa dipendenze:
+   ```bash
+   npm install
+   Inizializza Capacitor:
+   ```
 
 ```bash
-npm install
+
+npx cap init quantum-tic-tac-toe com.example.quantumtic
+Sposta i file in www/ e sincronizza:
 ```
-
-## ⚛️ Se vuoi usare React
-
-### Installa anche questi plugin ESLint:
 
 ```bash
-npm install -D eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
-Poi aggiorna eslint.config.mjs con:
+
+npx cap copy
+npx cap add android
+npx cap open android
+Esegui su emulatore/dispositivo:
+Premi ▶️ in Android Studio.
 ```
 
-// Dentro defineConfig:
+Per generare .aab:
+Vai su Build > Build Bundle(s) > Build Bundle
+
+📦 Struttura del progetto
+
+```pgsql
+
+tiktaktoe/
+├─ www/
+│ ├─ index.html
+│ ├─ style.css
+│ ├─ script.js
+│ └─ sounds/
+├─ package.json
+├─ capacitor.config.json
+├─ android/ (dopo cap add)
+└─ README.md
+
+```
+
+# 📌 TODO / Fix futuri
+
+[] Spostare Master Volume, Music Volume e Effects Volume in un menù separato (attualmente sforano il container).
+
+[] Aggiungere una vera Modalità Low Performance per dispositivi lenti:
+
+[] Disattivare animazioni, confetti e floating shapes
+
+[] Possibilità di toggle da UI
+
+[] Aggiungere selettore lingua per en / it nel nuovo menu impostazioni
+
+[] Rendere la UI adattiva per tutti i formati schermo (overflow visivo su dispositivi piccoli)
+
+[] Possibilità di salvare i punteggi anche tra sessioni
+
+# # 🧠 Crediti
+
+Sviluppato con 💻 da Nicco
+Effetti sonori e musica: royalty-free, local audio
+
+# 🧪 Note Dev
+
+Durante lo sviluppo:
+
+Usa npx cap copy dopo ogni modifica
+
+Testa su telefono reale per performance reali
+
+Usa console.log() per il debugging base su Android Studio Logcat
+
+### 📬 Licenza
 
 ```bash
-import reactPlugin from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
-import jsxA11y from 'eslint-plugin-jsx-a11y';
-
-plugins: {
-  prettier: prettierPlugin,
-  react: reactPlugin,
-  'react-hooks': reactHooks,
-  'jsx-a11y': jsxA11y,
-},
-rules: {
-  // Prettier + JS rules...
-  ...reactPlugin.configs.recommended.rules,
-  ...jsxA11y.configs.recommended.rules,
-  ...reactHooks.configs.recommended.rules,
-}
+MIT — Sentiti libero di forkare, migliorare e usare dove vuoi.
 ```
 
-## 🧠 Autore
-
-Nicco aka bubbosvilup
-🐙 https://github.com/bubbosvilup
+---

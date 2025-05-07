@@ -42,15 +42,15 @@ const sounds = {
 const musicTracks = {
   scifi: {
     title: 'Sci-Fi Atmosphere',
-    src: '/sounds/scifi.mp3',
+    src: 'sounds/scifi.mp3',
   },
   ambient: {
     title: 'Digital Ambience',
-    src: '/sounds/digital.mp3',
+    src: 'sounds/digital.mp3',
   },
   cyber: {
     title: 'Cyber Pulse',
-    src: '/sounds/pulse.mp3',
+    src: 'sounds/pulse.mp3',
   },
 };
 
@@ -199,12 +199,12 @@ function saveSettings() {
 function initSounds() {
   // Sound URLs
   const soundSources = {
-    'move.X': '/sounds/move.wav', // X move sound (digital click)
-    'move.O': '/sounds/move.wav', // O move sound (different tone)
-    win: '/sounds/win.wav', // Win celebration
-    draw: '/sounds/draw.wav', // Game over sound
-    click: '/sounds/click.wav', // UI click sound
-    hover: '/sounds/hover.wav', // Hover sound
+    'move.X': 'sounds/move.wav', // X move sound (digital click)
+    'move.O': 'sounds/move.wav', // O move sound (different tone)
+    win: 'sounds/win.wav', // Win celebration
+    draw: 'sounds/draw.wav', // Game over sound
+    click: 'sounds/click.wav', // UI click sound
+    hover: 'sounds/hover.wav', // Hover sound
   };
 
   // Set up each sound effect
@@ -914,75 +914,52 @@ function closeModal() {
   }
 }
 
-// Create confetti effect for wins
 function createConfetti() {
-  const confettiCount = 200;
+  const confettiCount = 12; // meno elementi
   const colors = ['#05d9e8', '#ff2a6d', '#d1f7ff', '#16213e'];
   const confettiItems = [];
 
-  // Clear canvas first
   ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
 
   for (let i = 0; i < confettiCount; i++) {
     confettiItems.push({
       x: Math.random() * confettiCanvas.width,
-      y: Math.random() * confettiCanvas.height - confettiCanvas.height,
-      size: Math.random() * 10 + 5,
+      y: -20,
+      size: Math.random() * 6 + 3,
       color: colors[Math.floor(Math.random() * colors.length)],
-      speed: Math.random() * 3 + 2,
-      angle: Math.random() * 360,
-      rotation: Math.random() * 360,
-      rotationSpeed: Math.random() * 5 - 2.5,
-      flutter: Math.random() * 0.2 + 0.1,
+      speed: Math.random() * 2 + 1,
     });
   }
 
-  // Animate confetti
-  let animationFrame;
   const animate = () => {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-
     let stillActive = false;
 
     confettiItems.forEach((item) => {
       item.y += item.speed;
-      item.x += Math.sin(item.angle) * item.flutter;
-      item.angle += 0.1;
-      item.rotation += item.rotationSpeed;
 
-      if (item.y < confettiCanvas.height + 20) {
+      if (item.y < confettiCanvas.height) {
         stillActive = true;
-
-        ctx.save();
-        ctx.translate(item.x, item.y);
-        ctx.rotate((item.rotation * Math.PI) / 180);
         ctx.fillStyle = item.color;
-
-        // Draw rectangle confetti
-        ctx.fillRect(-item.size / 2, -item.size / 2, item.size, item.size);
-
-        ctx.restore();
+        ctx.fillRect(item.x, item.y, item.size, item.size);
       }
     });
 
     if (stillActive) {
-      animationFrame = requestAnimationFrame(animate);
-    } else {
-      cancelAnimationFrame(animationFrame);
+      setTimeout(() => requestAnimationFrame(animate), 30);
     }
   };
 
   animate();
 }
 
-// Create move particles
 function createMoveParticles(index) {
   const cell = cells[index];
   const rect = cell.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
   const centerY = rect.top + rect.height / 2;
 
-  const particleCount = 15;
+  const particleCount = 8; // meno particelle
   const color = gameState.currentPlayer === 'X' ? '#05d9e8' : '#ff2a6d';
 
   for (let i = 0; i < particleCount; i++) {
@@ -991,77 +968,52 @@ function createMoveParticles(index) {
     particle.style.left = `${centerX}px`;
     particle.style.top = `${centerY}px`;
 
-    // Random size
-    const size = Math.random() * 10 + 5;
+    const size = Math.random() * 6 + 3;
     particle.style.width = `${size}px`;
     particle.style.height = `${size}px`;
 
-    // Random direction
     const angle = Math.random() * Math.PI * 2;
-    const distance = Math.random() * 100 + 50;
+    const distance = Math.random() * 60 + 20;
     const tx = Math.cos(angle) * distance;
     const ty = Math.sin(angle) * distance;
 
     particle.style.setProperty('--tx', `${tx}px`);
     particle.style.setProperty('--ty', `${ty}px`);
 
-    // Style
     particle.style.backgroundColor = color;
     particle.style.borderRadius = '50%';
 
     document.body.appendChild(particle);
 
-    // Auto-remove after animation completes
-    setTimeout(() => {
-      if (particle.parentNode) {
-        particle.parentNode.removeChild(particle);
-      }
-    }, 1000);
+    setTimeout(() => particle.remove(), 800);
   }
 }
 
-// Add floating elements to the background
 function addFloatingElements() {
-  const shapes = ['circle', 'square', 'triangle'];
+  const shapes = ['circle', 'square'];
   const container = document.body;
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 10; i++) {
     const element = document.createElement('div');
     element.className = 'floating';
 
-    // Random position
     element.style.left = `${Math.random() * 100}%`;
     element.style.top = `${Math.random() * 100}%`;
 
-    // Random size
-    const size = Math.random() * 50 + 20;
+    const size = Math.random() * 30 + 10;
     element.style.width = `${size}px`;
     element.style.height = `${size}px`;
 
-    // Random shape
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
     if (shape === 'circle') {
       element.style.borderRadius = '50%';
-    } else if (shape === 'triangle') {
-      element.style.width = '0';
-      element.style.height = '0';
-      element.style.borderLeft = `${size / 2}px solid transparent`;
-      element.style.borderRight = `${size / 2}px solid transparent`;
-      element.style.borderBottom = `${size}px solid rgba(5, 217, 232, 0.1)`;
-      element.style.background = 'none';
-    } else {
-      element.style.transform = `rotate(${Math.random() * 360}deg)`;
     }
 
-    // Style
-    if (shape !== 'triangle') {
-      element.style.background =
-        Math.random() > 0.5 ? 'rgba(5, 217, 232, 0.1)' : 'rgba(255, 42, 109, 0.1)';
-    }
+    element.style.background =
+      Math.random() > 0.5 ? 'rgba(5, 217, 232, 0.05)' : 'rgba(255, 42, 109, 0.05)';
 
-    // Animation duration and delay
-    const duration = Math.random() * 50 + 30;
-    const delay = Math.random() * 5;
+    const duration = Math.random() * 20 + 20;
+    const delay = Math.random() * 3;
     element.style.animationDuration = `${duration}s`;
     element.style.animationDelay = `${delay}s`;
 

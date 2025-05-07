@@ -1,0 +1,17 @@
+# Ignora node_modules
+node_modules/
+
+# Ignora Android build
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/build/
+
+# Output Capacitor
+www/*.js.map
+www/*.css.map
+
+# Altri file temporanei
+.DS_Store
+Thumbs.db
+*.log
